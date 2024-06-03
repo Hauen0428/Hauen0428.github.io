@@ -1,0 +1,5 @@
+<div id="workboard">
+<img class="boardsign" src="https://sourcebucket.s3.bitiful.net/badge/F小屋-下班休息啦.svg" title="下班了就该开开心心地玩耍~"><br> 
+<div style="font-size:13px;font-weight:bold">本站居然运行了 662 天 21 小时 30 分 10 秒 
+<i id="heartbeat" class="fas fa-heartbeat"></i> 
+<br> 旅行者 1 号当前距离地球 24385411962 千米，约为 163.004091 个天文单位 🚀</div></div>
