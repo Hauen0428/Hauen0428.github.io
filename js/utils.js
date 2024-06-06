@@ -1,296 +1,214 @@
 const btf = {
-  debounce: (func, wait = 0, immediate = false) => {
-    let timeout
-    return (...args) => {
-      const later = () => {
-        timeout = null
-        if (!immediate) func(...args)
-      }
-      const callNow = immediate && !timeout
-      clearTimeout(timeout)
-      timeout = setTimeout(later, wait)
-      if (callNow) func(...args)
-    }
-  },
-
-  throttle: function (func, wait, options = {}) {
-    let timeout, context, args
-    let previous = 0
-
-    const later = () => {
-      previous = options.leading === false ? 0 : new Date().getTime()
-      timeout = null
-      func.apply(context, args)
-      if (!timeout) context = args = null
-    }
-
-    const throttled = (...params) => {
-      const now = new Date().getTime()
-      if (!previous && options.leading === false) previous = now
-      const remaining = wait - (now - previous)
-      context = this
-      args = params
-      if (remaining <= 0 || remaining > wait) {
-        if (timeout) {
-          clearTimeout(timeout)
-          timeout = null
-        }
-        previous = now
-        func.apply(context, args)
-        if (!timeout) context = args = null
-      } else if (!timeout && options.trailing !== false) {
-        timeout = setTimeout(later, remaining)
-      }
-    }
-
-    return throttled
-  },
-
-  sidebarPaddingR: () => {
-    const innerWidth = window.innerWidth
-    const clientWidth = document.body.clientWidth
-    const paddingRight = innerWidth - clientWidth
-    if (innerWidth !== clientWidth) {
-      document.body.style.paddingRight = paddingRight + 'px'
-    }
-  },
-
-  snackbarShow: (text, showAction = false, duration = 2000) => {
-    const { position, bgLight, bgDark } = GLOBAL_CONFIG.Snackbar
-    const bg = document.documentElement.getAttribute('data-theme') === 'light' ? bgLight : bgDark
-    Snackbar.show({
-      text,
-      backgroundColor: bg,
-      showAction,
-      duration,
-      pos: position,
-      customClass: 'snackbar-css'
-    })
-  },
-
-  diffDate: (d, more = false) => {
-    const dateNow = new Date()
-    const datePost = new Date(d)
-    const dateDiff = dateNow.getTime() - datePost.getTime()
-    const minute = 1000 * 60
-    const hour = minute * 60
-    const day = hour * 24
-    const month = day * 30
-    const { dateSuffix } = GLOBAL_CONFIG
-
-    if (!more) return parseInt(dateDiff / day)
-
-    const monthCount = dateDiff / month
-    const dayCount = dateDiff / day
-    const hourCount = dateDiff / hour
-    const minuteCount = dateDiff / minute
-
-    if (monthCount > 12) return datePost.toISOString().slice(0, 10)
-    if (monthCount >= 1) return `${parseInt(monthCount)} ${dateSuffix.month}`
-    if (dayCount >= 1) return `${parseInt(dayCount)} ${dateSuffix.day}`
-    if (hourCount >= 1) return `${parseInt(hourCount)} ${dateSuffix.hour}`
-    if (minuteCount >= 1) return `${parseInt(minuteCount)} ${dateSuffix.min}`
-    return dateSuffix.just
-  },
-
-  loadComment: (dom, callback) => {
-    if ('IntersectionObserver' in window) {
-      const observerItem = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting) {
-          callback()
-          observerItem.disconnect()
-        }
-      }, { threshold: [0] })
-      observerItem.observe(dom)
-    } else {
-      callback()
-    }
-  },
-
-  scrollToDest: (pos, time = 500) => {
-    const currentPos = window.pageYOffset
-    const isNavFixed = document.getElementById('page-header').classList.contains('fixed')
-    if (currentPos > pos || isNavFixed) pos = pos - 70
-
-    if ('scrollBehavior' in document.documentElement.style) {
-      window.scrollTo({
-        top: pos,
-        behavior: 'smooth'
-      })
-      return
-    }
-
-    let start = null
-    pos = +pos
-    window.requestAnimationFrame(function step (currentTime) {
-      start = !start ? currentTime : start
-      const progress = currentTime - start
-      if (currentPos < pos) {
-        window.scrollTo(0, ((pos - currentPos) * progress / time) + currentPos)
-      } else {
-        window.scrollTo(0, currentPos - ((currentPos - pos) * progress / time))
-      }
-      if (progress < time) {
-        window.requestAnimationFrame(step)
-      } else {
-        window.scrollTo(0, pos)
-      }
-    })
-  },
-
-  animateIn: (ele, text) => {
-    ele.style.display = 'block'
-    ele.style.animation = text
-  },
-
-  animateOut: (ele, text) => {
-    ele.addEventListener('animationend', function f () {
-      ele.style.display = ''
-      ele.style.animation = ''
-      ele.removeEventListener('animationend', f)
-    })
-    ele.style.animation = text
-  },
-
-  wrap: (selector, eleType, options) => {
-    const createEle = document.createElement(eleType)
-    for (const [key, value] of Object.entries(options)) {
-      createEle.setAttribute(key, value)
-    }
-    selector.parentNode.insertBefore(createEle, selector)
-    createEle.appendChild(selector)
-  },
-
-  isHidden: ele => ele.offsetHeight === 0 && ele.offsetWidth === 0,
-
-  getEleTop: ele => {
-    let actualTop = ele.offsetTop
-    let current = ele.offsetParent
-
-    while (current !== null) {
-      actualTop += current.offsetTop
-      current = current.offsetParent
-    }
-
-    return actualTop
-  },
-
-  loadLightbox: ele => {
-    const service = GLOBAL_CONFIG.lightbox
-
-    if (service === 'mediumZoom') {
-      mediumZoom(ele, { background: 'var(--zoom-bg)' })
-    }
-
-    if (service === 'fancybox') {
-      Array.from(ele).forEach(i => {
-        if (i.parentNode.tagName !== 'A') {
-          const dataSrc = i.dataset.lazySrc || i.src
-          const dataCaption = i.title || i.alt || ''
-          btf.wrap(i, 'a', { href: dataSrc, 'data-fancybox': 'gallery', 'data-caption': dataCaption, 'data-thumb': dataSrc })
-        }
-      })
-
-      if (!window.fancyboxRun) {
-        Fancybox.bind('[data-fancybox]', {
-          Hash: false,
-          Thumbs: {
-            showOnStart: false
-          },
-          Images: {
-            Panzoom: {
-              maxScale: 4
+    debounce: function(t, e, n) {
+        let o;
+        return function() {
+            const i = this
+              , a = arguments
+              , r = function() {
+                o = null,
+                n || t.apply(i, a)
             }
-          },
-          Carousel: {
-            transition: 'slide'
-          },
-          Toolbar: {
-            display: {
-              left: ['infobar'],
-              middle: [
-                'zoomIn',
-                'zoomOut',
-                'toggle1to1',
-                'rotateCCW',
-                'rotateCW',
-                'flipX',
-                'flipY'
-              ],
-              right: ['slideshow', 'thumbs', 'close']
-            }
-          }
-        })
-        window.fancyboxRun = true
-      }
-    }
-  },
-
-  setLoading: {
-    add: ele => {
-      const html = `
-        <div class="loading-container">
-          <div class="loading-item">
-            <div></div><div></div><div></div><div></div><div></div>
-          </div>
-        </div>
-      `
-      ele.insertAdjacentHTML('afterend', html)
+              , s = n && !o;
+            clearTimeout(o),
+            o = setTimeout(r, e),
+            s && t.apply(i, a)
+        }
     },
-    remove: ele => {
-      ele.nextElementSibling.remove()
+    throttle: function(t, e, n) {
+        let o, i, a, r = 0;
+        n || (n = {});
+        const s = function() {
+            r = !1 === n.leading ? 0 : (new Date).getTime(),
+            o = null,
+            t.apply(i, a),
+            o || (i = a = null)
+        };
+        return function() {
+            const l = (new Date).getTime();
+            r || !1 !== n.leading || (r = l);
+            const c = e - (l - r);
+            i = this,
+            a = arguments,
+            c <= 0 || c > e ? (o && (clearTimeout(o),
+            o = null),
+            r = l,
+            t.apply(i, a),
+            o || (i = a = null)) : o || !1 === n.trailing || (o = setTimeout(s, c))
+        }
+    },
+    sidebarPaddingR: ()=>{
+        const t = window.innerWidth
+          , e = document.body.clientWidth
+          , n = t - e;
+        t !== e && (document.body.style.paddingRight = n + "px")
     }
-  },
-
-  updateAnchor: (anchor) => {
-    if (anchor !== window.location.hash) {
-      if (!anchor) anchor = location.pathname
-      const title = GLOBAL_CONFIG_SITE.title
-      window.history.replaceState({
-        url: location.href,
-        title
-      }, title, anchor)
+    ,
+    snackbarShow: (t,e=!1,n=2e3)=>{
+        const {position: o, bgLight: i, bgDark: a} = GLOBAL_CONFIG.Snackbar
+          , r = "light" === document.documentElement.getAttribute("data-theme") ? i : a;
+        Snackbar.show({
+            text: t,
+            backgroundColor: r,
+            showAction: e,
+            duration: n,
+            pos: o,
+            customClass: "snackbar-css"
+        })
     }
-  },
-
-  getScrollPercent: (currentTop, ele) => {
-    const docHeight = ele.clientHeight
-    const winHeight = document.documentElement.clientHeight
-    const headerHeight = ele.offsetTop
-    const contentMath = (docHeight > winHeight) ? (docHeight - winHeight) : (document.documentElement.scrollHeight - winHeight)
-    const scrollPercent = (currentTop - headerHeight) / (contentMath)
-    const scrollPercentRounded = Math.round(scrollPercent * 100)
-    const percentage = (scrollPercentRounded > 100) ? 100 : (scrollPercentRounded <= 0) ? 0 : scrollPercentRounded
-    return percentage
-  },
-
-  addGlobalFn: (key, fn, name = false, parent = window) => {
-    const globalFn = parent.globalFn || {}
-    const keyObj = globalFn[key] || {}
-
-    if (name && keyObj[name]) return
-
-    name = name || Object.keys(keyObj).length
-    keyObj[name] = fn
-    globalFn[key] = keyObj
-    parent.globalFn = globalFn
-  },
-
-  addEventListenerPjax: (ele, event, fn, option = false) => {
-    ele.addEventListener(event, fn, option)
-    btf.addGlobalFn('pjax', () => {
-      ele.removeEventListener(event, fn, option)
-    })
-  },
-
-  removeGlobalFnEvent: (key, parent = window) => {
-    const { globalFn = {} } = parent
-    const keyObj = globalFn[key] || {}
-    const keyArr = Object.keys(keyObj)
-    if (!keyArr.length) return
-    keyArr.forEach(i => {
-      keyObj[i]()
-    })
-    delete parent.globalFn[key]
-  }
-}
+    ,
+    diffDate: (t,e=!1)=>{
+        const n = new Date
+          , o = new Date(t)
+          , i = n.getTime() - o.getTime()
+          , a = 36e5
+          , r = 24 * a;
+        let s;
+        if (e) {
+            const t = i / 2592e6
+              , e = i / r
+              , n = i / a
+              , l = i / 6e4;
+            s = t > 12 ? o.toLocaleDateString().replace(/\//g, "-") : t >= 1 ? parseInt(t) + " " + GLOBAL_CONFIG.date_suffix.month : e >= 1 ? parseInt(e) + " " + GLOBAL_CONFIG.date_suffix.day : n >= 1 ? parseInt(n) + " " + GLOBAL_CONFIG.date_suffix.hour : l >= 1 ? parseInt(l) + " " + GLOBAL_CONFIG.date_suffix.min : GLOBAL_CONFIG.date_suffix.just
+        } else
+            s = parseInt(i / r);
+        return s
+    }
+    ,
+    loadComment: (t,e)=>{
+        if ("IntersectionObserver"in window) {
+            const n = new IntersectionObserver((t=>{
+                t[0].isIntersecting && (e(),
+                n.disconnect())
+            }
+            ),{
+                threshold: [0]
+            });
+            n.observe(t)
+        } else
+            e()
+    }
+    ,
+    scrollToDest: (t,e=500)=>{
+        const n = window.pageYOffset;
+        if (n > t && (t -= 70),
+        "scrollBehavior"in document.documentElement.style)
+            return void window.scrollTo({
+                top: t,
+                behavior: "smooth"
+            });
+        let o = null;
+        t = +t,
+        window.requestAnimationFrame((function i(a) {
+            o = o || a;
+            const r = a - o;
+            n < t ? window.scrollTo(0, (t - n) * r / e + n) : window.scrollTo(0, n - (n - t) * r / e),
+            r < e ? window.requestAnimationFrame(i) : window.scrollTo(0, t)
+        }
+        ))
+    }
+    ,
+    animateIn: (t,e)=>{
+        t.style.display = "block",
+        t.style.animation = e
+    }
+    ,
+    animateOut: (t,e)=>{
+        t.addEventListener("animationend", (function e() {
+            t.style.display = "",
+            t.style.animation = "",
+            t.removeEventListener("animationend", e)
+        }
+        )),
+        t.style.animation = e
+    }
+    ,
+    getParents: (t,e)=>{
+        for (; t && t !== document; t = t.parentNode)
+            if (t.matches(e))
+                return t;
+        return null
+    }
+    ,
+    siblings: (t,e)=>[...t.parentNode.children].filter((n=>e ? n !== t && n.matches(e) : n !== t)),
+    wrap: (t,e,n)=>{
+        const o = document.createElement(e);
+        for (const [t,e] of Object.entries(n))
+            o.setAttribute(t, e);
+        t.parentNode.insertBefore(o, t),
+        o.appendChild(t)
+    }
+    ,
+    unwrap: t=>{
+        const e = t.parentNode;
+        e !== document.body && (e.parentNode.insertBefore(t, e),
+        e.parentNode.removeChild(e))
+    }
+    ,
+    isHidden: t=>0 === t.offsetHeight && 0 === t.offsetWidth,
+    getEleTop: t=>{
+        let e = t.offsetTop
+          , n = t.offsetParent;
+        for (; null !== n; )
+            e += n.offsetTop,
+            n = n.offsetParent;
+        return e
+    }
+    ,
+    loadLightbox: t=>{
+        const e = GLOBAL_CONFIG.lightbox;
+        if ("mediumZoom" === e) {
+            const e = mediumZoom(t);
+            e.on("open", (t=>{
+                const n = "dark" === document.documentElement.getAttribute("data-theme") ? "#121212" : "#fff";
+                e.update({
+                    background: n
+                })
+            }
+            ))
+        }
+        "fancybox" === e && (t.forEach((t=>{
+            if ("A" !== t.parentNode.tagName) {
+                const e = t.dataset.lazySrc || t.src
+                  , n = t.title || t.alt || "";
+                btf.wrap(t, "a", {
+                    href: e,
+                    "data-fancybox": "gallery",
+                    "data-caption": n,
+                    "data-thumb": e
+                })
+            }
+        }
+        )),
+        window.fancyboxRun || (Fancybox.bind("[data-fancybox]", {
+            Hash: !1,
+            Thumbs: {
+                autoStart: !1
+            }
+        }),
+        window.fancyboxRun = !0))
+    }
+    ,
+    initJustifiedGallery: function(t) {
+        t.forEach((function(t) {
+            btf.isHidden(t) || fjGallery(t, {
+                itemSelector: ".fj-gallery-item",
+                rowHeight: 220,
+                gutter: 4,
+                onJustify: function() {
+                    this.$container.style.opacity = "1"
+                }
+            })
+        }
+        ))
+    },
+    updateAnchor: t=>{
+        if (t !== window.location.hash) {
+            t || (t = location.pathname);
+            const e = GLOBAL_CONFIG_SITE.title;
+            window.history.replaceState({
+                url: location.href,
+                title: e
+            }, e, t)
+        }
+    }
+};
